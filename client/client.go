@@ -1,32 +1,39 @@
 package main
 
 import (
-    "bufio"
-    "fmt"
-    "net"
-    "os"
+        "bufio"
+        "fmt"
+        "net"
+        "os"
+        "strings"
 )
 
 func main() {
-    if len(os.Args) != 3 {
-        fmt.Fprintf(os.Stderr, "Usage: %s host port\n", os.Args[0])
-        os.Exit(1)
-    }
-    host := os.Args[1]
-    port := os.Args[2]
-    conn, err := net.Dial("tcp", host+":"+port)
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
-        os.Exit(1)
-    }
-    defer conn.Close()
-    fmt.Println("Connected to server")
-    scanner := bufio.NewScanner(os.Stdin)
-    for {
-        if !scanner.Scan() {
-            break
+        arguments := os.Args
+        if len(arguments) == 1 {
+                fmt.Println("Please provide host:port.")
+                return
         }
-        message := scanner.Text()
-        fmt.Fprintf(conn, message+"\n")
-    }
+
+        CONNECT := arguments[1]
+        c, err := net.Dial("tcp", CONNECT)
+        if err != nil {
+                fmt.Println(err)
+                return
+        }
+
+        for {
+                reader := bufio.NewReader(os.Stdin)
+                fmt.Print(">> ")
+                text, _ := reader.ReadString('\n')
+                fmt.Fprintf(c, text+"\n")
+
+                message, _ := bufio.NewReader(c).ReadString('\n')
+                fmt.Print("->: " + message)
+                if strings.TrimSpace(string(text)) == "STOP" {
+                        fmt.Println("TCP client exiting...")
+                        return
+                }
+        }
 }
+    
