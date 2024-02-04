@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -59,8 +58,8 @@ func main() {
         }
 
         // First message to be sent is a time stamp with the node name
-        currentTime := time.Now().UnixNano()
-        connectionMessage := fmt.Sprintf("%s - %s Connected\n", strconv.FormatInt(currentTime, 10), node_name)
+        currentTime := float64(time.Now().UnixNano()) / 1e9
+	connectionMessage := fmt.Sprintf("%.7f - %s Connected\n", currentTime, node_name)
 
         // Print the connection message locally in VM2
         fmt.Println(connectionMessage)
