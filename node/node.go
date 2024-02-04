@@ -54,13 +54,19 @@ func main() {
 
         // Check if there was an error creating the connection
         if err != nil {
-                fmt.Println(err)
-                return
+        fmt.Println(err)
+        return
         }
 
         // First message to be sent is a time stamp with the node name
         currentTime := time.Now().UnixNano()
-        fmt.Println(strconv.FormatInt(currentTime, 10) + " - " + node_name + " Connected")
+        connectionMessage := fmt.Sprintf("%s - %s Connected\n", strconv.FormatInt(currentTime, 10), node_name)
+
+        // Print the connection message locally in VM2
+        fmt.Println(connectionMessage)
+
+        // Send the connection message to the server
+        fmt.Fprintf(c, connectionMessage)
 
         // Continue sending any received messages
         send_message(c, node_name)
