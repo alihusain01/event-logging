@@ -12,23 +12,21 @@ import (
 
 var (
 	mu      sync.Mutex
-	clients = make(map[net.Conn]bool)
+	clients = make(map[net.Conn]string) // Map to store connections and associated node names
 )
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	// Add the new connection to the clients map
+	// Lock to safely access the clients map
 	mu.Lock()
-	clients[conn] = true
+	nodeName, ok := clients[conn]
 	mu.Unlock()
 
-	defer func() {
-		// Remove the connection from the clients map when the function exits
-		mu.Lock()
-		delete(clients, conn)
-		mu.Unlock()
-	}()
+	if !ok {
+		fmt.Println("Error: Node name not found for connection.")
+		return
+	}
 
 	// Read and print the initial connection message
 	netData, err := bufio.NewReader(conn).ReadString('\n')
@@ -41,11 +39,20 @@ func handleConnection(conn net.Conn) {
 	for {
 		netData, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("%s - %s disconnected\n", timestamp(), nodeName)
+			// Lock to safely remove the disconnected node from the clients map
+			mu.Lock()
+			delete(clients, conn)
+			mu.Unlock()
 			return
 		}
+
 		if strings.TrimSpace(string(netData)) == "STOP" {
-			fmt.Println("Connection closed:", conn.RemoteAddr())
+			fmt.Printf("%s - %s disconnected\n", timestamp(), nodeName)
+			// Lock to safely remove the disconnected node from the clients map
+			mu.Lock()
+			delete(clients, conn)
+			mu.Unlock()
 			return
 		}
 
@@ -54,6 +61,10 @@ func handleConnection(conn net.Conn) {
 		myTime := t.Format(time.RFC3339) + "\n"
 		conn.Write([]byte(myTime))
 	}
+}
+
+func timestamp() string {
+	return fmt.Sprintf("%.6f", float64(time.Now().UnixNano())/1e9)
 }
 
 func main() {
@@ -79,6 +90,21 @@ func main() {
 			fmt.Println(err)
 			return
 		}
+
+		// Get node name from the initial connection message
+		nodeName, err := bufio.NewReader(conn).ReadString(' ')
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		// Lock to safely update the clients map
+		mu.Lock()
+		clients[conn] = strings.TrimSpace(nodeName)
+		mu.Unlock()
+
+		// Print the connected message
+		fmt.Printf("%s - %s connected\n", timestamp(), clients[conn])
 
 		// Handle each connection concurrently
 		go handleConnection(conn)
