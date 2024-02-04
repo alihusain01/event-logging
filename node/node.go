@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-// python3 -u generator.py 0.1 | ./node node1 172.22.94.138 1234
-
 func send_message(conn net.Conn, node_name string) {
 	for {
 		// Receives event from generator.py
