@@ -23,13 +23,30 @@ func handleConnection(conn net.Conn) {
 	for {
 		netData, err := bufio.NewReader(conn).ReadString('\n')
 
+		if err != nil {
+			fmt.Printf("Error reading from connection: %s\n", err)
+			// Lock to safely remove the disconnected node from the clients map
+			mu.Lock()
+			delete(clients, conn)
+			mu.Unlock()
+			return
+		}
+
 		// Parse the input into nodename and event timestamp
-		parts := strings.Split(netData, " ")
-		event_timestamp := parts[0]
+		parts := strings.Split(strings.TrimSpace(netData), " ")
+
+		// Ensure that there are at least two parts before accessing them
+		if len(parts) < 2 {
+			fmt.Printf("Received invalid data from connection: %s\n", netData)
+			continue
+		}
+
+		eventTimestamp := parts[0]
 		nodeName := parts[1]
 		messageSize := len(netData)
 
-		if err != nil {
+		// Handle STOP command
+		if nodeName == "STOP" {
 			fmt.Printf("%s - %s disconnected\n", timestamp(), nodeName)
 			// Lock to safely remove the disconnected node from the clients map
 			mu.Lock()
@@ -38,18 +55,8 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-
-		if strings.TrimSpace(string(netData)) == "STOP" {
-			fmt.Printf("%s - %s disconnected\n", timestamp(), nodeName)
-			// Lock to safely remove the disconnected node from the clients map
-			mu.Lock()
-			delete(clients, conn)
-			mu.Unlock()
-			return
-		}
-
-		fmt.Printf("-> %s \n", string(netData))
-		logEntry := fmt.Sprintf("%s %s %d \n", timestamp(), event_timestamp, messageSize)
+		fmt.Printf("-> %s \n", netData)
+		logEntry := fmt.Sprintf("%s %s %d \n", timestamp(), eventTimestamp, messageSize)
 
 		fileMu.Lock()
 		_, err = logFile.WriteString(logEntry)
@@ -61,7 +68,6 @@ func handleConnection(conn net.Conn) {
 		t := time.Now()
 		myTime := t.Format(time.RFC3339) + "\n"
 		conn.Write([]byte(myTime))
-
 	}
 }
 
@@ -86,6 +92,22 @@ func main() {
 
 	fmt.Println("Server listening on", PORT)
 
+	// Create log file once
+	var logErr error
+	logFile, logErr = os.Create("logFile.txt") // This will create a new file or truncate an existing one
+	if logErr != nil {
+		fmt.Println("Error creating file:", err)
+		return
+	}
+	defer logFile.Close()
+
+	// Writing a file title
+	_, logTitleErr := logFile.WriteString("Logging at time " + timestamp() + "\n")
+	if logTitleErr != nil {
+		fmt.Println("Error writing log file title:", err)
+		return
+	}
+
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -107,22 +129,6 @@ func main() {
 
 		// Print the connected message
 		fmt.Printf("%s - %s connected\n", timestamp(), nodeName)
-
-		//Create logging file
-		var log_err error
-		logFile, log_err = os.Create("logFile.txt") // This will create a new file or truncate an existing one
-		if log_err != nil {
-			fmt.Println("Error creating file:", err)
-			return
-		}
-		defer logFile.Close()
-
-		// Writing a file title
-		_, log_title_err := logFile.WriteString("Logging at time " + timestamp() + "\n")
-		if log_title_err != nil {
-			fmt.Println("Error writing log file tilte:", err)
-			return
-		}
 
 		// Handle each connection concurrently
 		go handleConnection(conn)
