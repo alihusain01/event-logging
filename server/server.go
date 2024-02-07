@@ -37,7 +37,7 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		// Parse the input into nodename and event timestamp
+		// Parse the input into nodename, event , and message
 		parts := strings.Split(strings.TrimSpace(netData), " ")
 
 		if len(parts) < 2 {
