@@ -14,6 +14,7 @@ var (
 	mu      sync.Mutex
 	fileMu  sync.Mutex
 	clients = make(map[net.Conn]string) // Map to store connections and associated node names
+	ipNodeMap = make(map[string]string)
 	logFile *os.File
 )
 
@@ -24,7 +25,11 @@ func handleConnection(conn net.Conn) {
 		netData, err := bufio.NewReader(conn).ReadString('\n')
 
 		if err != nil {
-			fmt.Printf("Error reading from connection: %s\n", err)
+			fullErrorMessage := strings.Split(err.Error(), " ")
+			ipAddressWithColon := strings.Split(strings.TrimSpace(fullErrorMessage[2]), ">")
+			ipAddressTrimmed := strings.Split(strings.TrimSpace(ipAddressWithColon[1]), ":")
+			finalIP := ipAddressTrimmed[0]
+			fmt.Printf(timestamp() + " - " + ipNodeMap[finalIP] + " disconnected" + "\n")
 			// Lock to safely remove the disconnected node from the clients map
 			mu.Lock()
 			delete(clients, conn)
@@ -40,22 +45,14 @@ func handleConnection(conn net.Conn) {
 			fmt.Printf("Received invalid data from connection: %s\n", netData)
 			continue
 		}
-
+		
 		eventTimestamp := parts[0]
 		nodeName := parts[1]
+		message := parts[3]
 		messageSize := len(netData)
 
-		// Handle STOP command
-		if nodeName == "STOP" {
-			fmt.Printf("%s - %s disconnected\n", timestamp(), nodeName)
-			// Lock to safely remove the disconnected node from the clients map
-			mu.Lock()
-			delete(clients, conn)
-			mu.Unlock()
-			return
-		}
+		fmt.Println(eventTimestamp + " " + nodeName + " " + message)
 
-		fmt.Printf("-> %s \n", netData)
 		logEntry := fmt.Sprintf("%s %s %d \n", timestamp(), eventTimestamp, messageSize)
 
 		fileMu.Lock()
@@ -116,19 +113,29 @@ func main() {
 		}
 
 		// Get node name from the initial connection message
-		nodeName, err := bufio.NewReader(conn).ReadString(' ')
+		nodeName, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
 
+		// Parse the input into nodename and event timestamp
+		connectionMessage := strings.Split(strings.TrimSpace(nodeName), " ")
+
+		eventTimestamp := connectionMessage[0]
+		node_name := connectionMessage[2]
+		node_ip := connectionMessage[4]
+
+		if _, ok := ipNodeMap[node_ip]; !ok {
+			ipNodeMap[node_ip] = node_name
+		}
+
+		fmt.Printf(eventTimestamp + " - " + node_name + " connected" + "\n")
+
 		// Lock to safely update the clients map
 		mu.Lock()
 		clients[conn] = strings.TrimSpace(nodeName)
 		mu.Unlock()
-
-		// Print the connected message
-		fmt.Printf("%s - %s connected\n", timestamp(), nodeName)
 
 		// Handle each connection concurrently
 		go handleConnection(conn)
