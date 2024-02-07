@@ -102,7 +102,7 @@ func main() {
 	defer logFile.Close()
 
 	// Writing a file title
-	_, logTitleErr := logFile.WriteString("Logging at time " + timestamp() + "\n")
+	_, logTitleErr := logFile.WriteString("Program start: " + timestamp() + "\n")
 	if logTitleErr != nil {
 		fmt.Println("Error writing log file title:", err)
 		return
