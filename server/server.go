@@ -13,7 +13,7 @@ import (
 var (
 	mu      sync.Mutex
 	fileMu  sync.Mutex
-	clients = make(map[net.Conn]string) // Map to store connections and associated node names
+	clients = make(map[net.Conn]string)
 	ipNodeMap = make(map[string]string)
 	logFile *os.File
 )
@@ -40,7 +40,6 @@ func handleConnection(conn net.Conn) {
 		// Parse the input into nodename and event timestamp
 		parts := strings.Split(strings.TrimSpace(netData), " ")
 
-		// Ensure that there are at least two parts before accessing them
 		if len(parts) < 2 {
 			fmt.Printf("Received invalid data from connection: %s\n", netData)
 			continue
@@ -91,7 +90,7 @@ func main() {
 
 	// Create log file once
 	var logErr error
-	logFile, logErr = os.Create("logFile.txt") // This will create a new file or truncate an existing one
+	logFile, logErr = os.Create("logFile.txt")
 	if logErr != nil {
 		fmt.Println("Error creating file:", err)
 		return
